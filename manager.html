@@ -7,15 +7,16 @@
   <title>Extension Manager Extension</title>
   <link rel="icon" type="image/png" href="icons/icon-32.png">
   <link rel="stylesheet" href="manager.css">
+  <script src="ui.js" defer></script>
   <script src="manager.js" defer></script>
 </head>
 <body>
   <main>
     <header>
-      <div class="brand"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1><a class="repo-link" href="https://github.com/hgurb/extension-manager-extension" target="_blank" rel="noopener noreferrer" title="View Extension Manager Extension on GitHub"><span>Extension Manager Extension</span><svg class="github-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.08c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1.01 1.72 2.65 1.22 3.29.93.1-.73.4-1.22.72-1.5-2.5-.28-5.13-1.25-5.13-5.57 0-1.23.44-2.23 1.16-3.02-.12-.28-.51-1.43.11-2.99 0 0 .95-.3 3.08 1.15a10.7 10.7 0 0 1 5.6 0c2.14-1.45 3.08-1.15 3.08-1.15.62 1.56.23 2.71.12 2.99.72.79 1.15 1.79 1.15 3.02 0 4.33-2.63 5.29-5.14 5.57.41.35.76 1.03.76 2.08v3.08c0 .3.21.65.77.54A11.2 11.2 0 0 0 12 .8Z"/></svg></a></h1><p>Just the extensions you want.</p></div></div>
+      <div class="brand"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1><a class="repo-link" href="https://github.com/hgurb/extension-manager-extension" target="_blank" rel="noopener noreferrer" title="GitHub"><span>Extension Manager Extension</span><span class="header-external-arrow" aria-hidden="true">↗</span><svg class="github-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297C5.37.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.838 1.237 1.838 1.237 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.334-5.466-5.93 0-1.31.469-2.381 1.236-3.221-.124-.303-.536-1.524.117-3.176 0 0 1.008-.322 3.301 1.23a11.51 11.51 0 0 1 3.003-.404c1.018.005 2.043.138 3.003.404 2.291-1.552 3.297-1.23 3.297-1.23.655 1.652.243 2.873.12 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.805 5.625-5.478 5.921.43.372.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.595 24 12.297c0-6.627-5.373-12-12-12"/></svg></a></h1><p class="header-subtitle"><span>Just the extensions you want.</span><button id="chrome-page" class="text-button">All in Chrome ↗</button></p></div></div>
       <div class="header-actions">
-        <button id="choose" class="primary">Choose extensions</button>
-        <button id="theme" title="Switch to light theme" aria-label="Switch to light theme">☀</button>
+        <div id="manager-controls" class="card-actions" aria-label="Extension Manager Extension controls"></div>
+        <button id="theme" title="Light mode" aria-label="Switch to light theme">☀</button>
       </div>
     </header>
     <fieldset class="view-mode">
@@ -24,18 +25,28 @@
       <label><input type="radio" name="view-mode" value="grouped"> Grouped</label>
       <label><input id="rearrange" type="checkbox"> Drag to rearrange</label>
     </fieldset>
-    <div class="list-heading"><h2>My extensions <span id="count"></span></h2><button id="chrome-page" class="text-button">All in Chrome ↗</button></div>
+    <div class="list-heading">
+      <div class="list-title"><h2>Favorites <span id="count"></span></h2><div class="page-search-control selected-search-control"><input id="page-selected-search" class="page-search" type="search" placeholder="Search selected extensions…" aria-label="Search selected extensions" autocomplete="off"><button class="page-search-clear" title="Clear" aria-label="Clear selected search" hidden>×</button></div></div>
+      <div class="list-actions"><button id="reset-order" class="text-button" hidden title="Reset order">Reset order</button><button id="choose" class="primary">Choose favorites</button></div>
+    </div>
     <section id="cards" aria-label="Selected extensions"></section>
-    <div id="empty" hidden><h2>Your extensions, in one place.</h2><p>Choose which extensions appear here.</p><button id="empty-choose">Choose extensions</button></div>
-    <p class="footnote">Incognito access and error reports open in Chrome’s extension settings.</p>
+    <p id="cards-no-results" class="footnote" role="status" hidden>No matching selected extensions.</p>
+    <div id="empty" hidden><h2>Your extensions, in one place.</h2><p>Choose which extensions appear here.</p><button id="empty-choose">Choose favorites</button></div>
+    <details id="page-all-extensions">
+      <summary>All extensions <span id="page-all-count"></span></summary>
+      <div class="page-search-control"><input id="page-all-search" class="page-search" type="search" placeholder="Search extensions…" aria-label="Search all extensions" autocomplete="off"><button class="page-search-clear" title="Clear" aria-label="Clear all extensions search" hidden>×</button></div>
+      <div id="page-all-list"></div>
+      <p id="page-all-empty" class="footnote" hidden>No matching extensions.</p>
+    </details>
+    <p class="footnote">Error reports open in Chrome’s extension settings.</p>
     <p id="status" role="status" aria-live="polite"></p>
     <p class="credit">Created by <a href="https://github.com/hgurb" target="_blank" rel="noopener noreferrer">hgurb</a></p>
   </main>
   <dialog id="picker" closedby="any" aria-labelledby="picker-title" aria-describedby="picker-note">
-    <div class="dialog-heading"><h2 id="picker-title">Choose extensions</h2><button id="close-picker" aria-label="Close">✕</button></div>
+    <div class="dialog-heading"><h2 id="picker-title">Choose favorites</h2><button id="close-picker" aria-label="Close">✕</button></div>
     <p id="picker-note">Only checked extensions appear on your page. Changes save automatically.</p>
     <div class="picker-search-controls">
-    <input id="search" type="search" placeholder="Find an extension…" aria-label="Find an extension" autocomplete="off">
+    <div class="picker-search-field"><input id="search" type="search" placeholder="Find an extension…" aria-label="Find an extension" autocomplete="off"><button id="picker-search-clear" class="page-search-clear" title="Clear" aria-label="Clear favorites search" hidden>×</button></div>
     <div id="picker-filters" role="group" aria-label="Filter extensions">
       <label><input type="checkbox" name="filter-selection" value="selected">Selected</label>
       <label><input type="checkbox" name="filter-selection" value="unselected">Not selected</label>

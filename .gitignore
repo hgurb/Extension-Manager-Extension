@@ -5,7 +5,10 @@
 !/LICENSE
 !/README.md
 !/manifest.json
-!/background.js
+!/ui.js
+!/popup.html
+!/popup.css
+!/popup.js
 !/manager.html
 !/manager.css
 !/manager.js

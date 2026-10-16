@@ -1,0 +1,61 @@
+html { inline-size: 360px; }
+body { inline-size: 360px; max-block-size: 590px; display: flex; flex-direction: column; font-size: 12px; }
+.popup-nav { display: flex; align-items: center; gap: 8px; padding: 10px; border-block-end: 1px solid var(--border); flex-shrink: 0; }
+.popup-nav button { font-size: 11px; padding: 5px 7px; white-space: nowrap; }
+.manager-header-box { display: flex; align-items: center; gap: 2px; flex: 1; min-inline-size: 0; background: var(--button); border: 1px solid var(--border); border-radius: 7px; }
+.popup-nav .manager-shortcut { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-inline-size: 0; padding: 5px; border: 0; background: transparent; font-size: 10px; }
+.popup-nav .manager-shortcut:hover, .popup-nav .manager-shortcut:focus-visible { background: var(--hover); box-shadow: inset 0 0 0 1px var(--accent), 0 0 8px #95afce30; }
+.manager-tools { display: flex; align-items: center; gap: 1px; margin-inline-start: auto; padding-inline-end: 3px; }
+.popup-nav .manager-tools .icon-button { inline-size: 24px; block-size: 26px; min-block-size: 26px; flex-basis: 24px; padding: 4px; border-color: transparent; background: transparent; }
+.manager-tools .icon-button svg { inline-size: 15px; block-size: 15px; }
+.popup-nav .manager-tools .icon-button:hover { background: var(--hover); }
+.manager-shortcut img { display: block; flex-shrink: 0; }
+#popup-list { overflow-y: auto; overscroll-behavior: contain; min-block-size: 0; padding: 8px 10px; scrollbar-gutter: stable; }
+.popup-group + .popup-group { margin-block-start: 10px; padding-block-start: 8px; border-block-start: 1px solid var(--border); }
+.popup-group-title { margin: 0 0 6px; padding-inline: 2px; font-size: 10px; font-weight: 600; color: var(--muted); }
+.popup-card { display: flex; align-items: center; gap: 8px; min-inline-size: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.popup-card + .popup-card { margin-block-start: 6px; }
+.popup-name-row { display: flex; align-items: center; gap: 7px; min-inline-size: 0; flex: 1; color: inherit; text-decoration: none; border-radius: 4px; cursor: pointer; }
+.popup-name-row:hover { color: var(--accent); }
+.popup-name-row[aria-disabled="true"] { cursor: default; }
+.popup-name-row[aria-disabled="true"]:hover { color: inherit; }
+.popup-card.is-disabled .popup-name-row:hover .popup-name { color: var(--accent); }
+.popup-name-row .icon { inline-size: 23px; block-size: 23px; flex-basis: 23px; }
+.popup-marked-icon { position: relative; display: block; inline-size: 23px; block-size: 23px; flex: 0 0 23px; }
+.popup-source-marker { position: absolute; inset-inline-end: -3px; inset-block-end: -3px; display: grid; place-items: center; inline-size: 13px; block-size: 13px; border: 1px solid var(--panel); border-radius: 3px; color: var(--text); background: var(--button); }
+.popup-source-marker svg { display: block; inline-size: 10px; block-size: 10px; }
+.popup-name { min-inline-size: 0; flex: 1; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; font-weight: 600; line-height: 1.5; }
+.popup-name span { display: inline-block; white-space: nowrap; }
+.popup-name > .popup-name-track { display: inline-flex; inline-size: max-content; }
+.popup-name-track > span { padding-inline-end: 24px; }
+.popup-card.is-disabled .popup-name { color: var(--muted); }
+.popup-name.has-overflow:hover, .popup-card:focus-within .popup-name.has-overflow { text-overflow: clip; }
+.popup-name.has-overflow:hover > .popup-name-track, .popup-card:focus-within .popup-name.has-overflow > .popup-name-track { animation: name-scroll var(--scroll-duration, 6s) linear 1s infinite; }
+@keyframes name-scroll { from { transform: translateX(0); } to { transform: translateX(var(--scroll-distance)); } }
+@media (prefers-reduced-motion: reduce) { .popup-name.has-overflow:hover > .popup-name-track, .popup-card:focus-within .popup-name.has-overflow > .popup-name-track { animation: none; } }
+.popup-controls, .popup-primary, .popup-state { display: flex; align-items: center; gap: 4px; }
+.popup-controls { flex-shrink: 0; }
+.popup-controls .icon-button { inline-size: 26px; block-size: 26px; min-block-size: 26px; flex-basis: 26px; padding: 4px; border-radius: 6px; }
+.popup-controls .icon-button svg { inline-size: 15px; block-size: 15px; }
+.popup-controls .icon-button { border-color: transparent; background: transparent; color: var(--muted); }
+.popup-controls .icon-button:not(:disabled):hover { background: var(--hover); color: var(--text); }
+.popup-controls .favorite-toggle svg { stroke-width: 1.4; }
+.popup-controls .favorite-toggle.is-favorite { color: var(--accent); border-color: transparent; background: transparent; }
+.popup-controls .favorite-toggle.is-favorite svg { fill: currentColor; stroke-width: 1.8; }
+.popup-controls .favorite-toggle:not(:disabled):hover { color: var(--accent); background: transparent; border-color: transparent; }
+.popup-state .enabled-label { min-block-size: 28px; padding-inline: 4px 0; }
+.popup-controls .restart { color: var(--muted); }
+#status { margin: 0; padding: 0; min-block-size: 0; flex-shrink: 0; }
+#status:not(:empty) { padding: 6px 12px 10px; font-size: 11px; }
+#popup-empty { padding: 10px 14px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.popup-remaining { margin-block-start: 10px; border-block-start: 1px solid var(--border); }
+.popup-remaining summary { padding: 10px 2px; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 600; }
+.popup-remaining summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+.popup-search-control { position: relative; margin-block-end: 8px; }
+.popup-search { display: block; inline-size: 100%; min-inline-size: 0; margin: 0; padding: 5px 32px 5px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--field); font: inherit; font-size: 12px; line-height: 1.3; }
+.popup-search::-webkit-search-cancel-button { -webkit-appearance: none; }
+.popup-search-clear { position: absolute; inset-inline-end: 2px; inset-block: 1px; inline-size: 28px; min-block-size: 0; padding: 0; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #e79898; font-size: 20px; line-height: 1; }
+.popup-search-clear:hover { color: #ffd5d5; background: #703a3a; }
+:root[data-theme="light"] .popup-search-clear { color: #a53d3d; }
+:root[data-theme="light"] .popup-search-clear:hover { color: #7a2424; background: #f6dede; }
+.remaining-empty { margin: 8px 2px; color: var(--muted); font-size: 11px; }

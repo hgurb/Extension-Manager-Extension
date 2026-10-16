@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Extension Manager Extension</title>
+  <link rel="stylesheet" href="manager.css">
+  <link rel="stylesheet" href="popup.css">
+  <script src="ui.js" defer></script>
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <nav class="popup-nav" aria-label="Extension pages">
+    <div class="manager-header-box">
+      <button id="open-manager" class="manager-shortcut" title="Extension Manager"><img src="icons/icon-32.png" width="22" height="22" alt=""><span>Extension Manager ↗</span></button>
+      <div id="manager-tools" class="manager-tools" aria-label="Manager controls"></div>
+    </div>
+    <button id="open-chrome" class="text-button" title="All in Chrome">All in Chrome ↗</button>
+  </nav>
+  <p id="popup-empty" hidden>No extensions selected. Choose them on the manager page.</p>
+  <div id="popup-list" aria-label="Extensions"></div>
+  <p id="status" role="status" aria-live="polite"></p>
+</body>
+</html>

@@ -11,9 +11,9 @@
     "128": "icons/icon-128.png"
   },
   "permissions": ["management", "storage"],
-  "background": { "service_worker": "background.js" },
   "action": {
-    "default_title": "Open Extension Manager Extension",
+    "default_title": "Extension Manager Extension",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

@@ -11,38 +11,48 @@ let rearrange = false;
 let cardOrders = { ungrouped: [], grouped: {} };
 let dragActive = false;
 let savingOrder = false;
+let renderAllExtensions = () => {};
 
-function groupKey(info) {
-  const source = info.installType === 'development' ? 'local' : sourceLabel(info) === 'Chrome Web Store' ? 'store' : 'other';
-  return `${info.enabled ? 'enabled' : 'disabled'}-${source}`;
-}
 
 function syncOrders(previous) {
-  const visible = extensions.filter(info => selected.has(info.id));
-  const selectedOrder = [...selected].filter(id => visible.some(info => info.id === id));
+  const visible = extensions.filter(info => (selected.has(info.id) || fadingFavorites.has(info.id)) && info.id !== chrome.runtime.id);
+  const selectedOrder = [...new Set([...selected, ...fadingFavorites.keys()])].filter(id => visible.some(info => info.id === id));
   const reconcile = (old, ids) => {
     const retained = [...new Set(Array.isArray(old) ? old : [])].filter(id => ids.includes(id));
     return [...retained, ...ids.filter(id => !retained.includes(id))];
   };
   const next = { ungrouped: reconcile(previous?.ungrouped, selectedOrder), grouped: {} };
-  for (const key of ['enabled-local', 'enabled-store', 'disabled-local', 'disabled-store', 'enabled-other', 'disabled-other']) {
+  for (const [key] of EXTENSION_GROUPS) {
     const ids = selectedOrder.filter(id => groupKey(visible.find(info => info.id === id)) === key);
     next.grouped[key] = reconcile(previous?.grouped?.[key], ids);
   }
   return next;
 }
 
-async function moveCard(card, target, focusHandle = false) {
+async function moveCard(card, target, focusHandle = false, mode = 'move') {
   if (savingOrder || !rearrange || !target || card === target || card.parentElement !== target.parentElement) return;
   const siblings = [...card.parentElement.children].filter(element => element.classList.contains('card'));
   const ids = siblings.map(element => element.dataset.id);
   const from = ids.indexOf(card.dataset.id);
   const to = ids.indexOf(target.dataset.id);
-  ids.splice(from, 1);
-  ids.splice(to, 0, card.dataset.id);
+  if (mode === 'swap') {
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+  } else {
+    ids.splice(from, 1);
+    ids.splice(to, 0, card.dataset.id);
+  }
+  await saveCardOrder(card, ids, focusHandle);
+}
+
+async function saveCardOrder(card, ids, focusHandle = false) {
   const next = structuredClone(cardOrders);
-  if (grouped) next.grouped[card.dataset.group] = ids;
-  else next.ungrouped = ids;
+  const original = grouped ? next.grouped[card.dataset.group] : next.ungrouped;
+  const moved = new Set(ids);
+  let index = 0;
+  const merged = original.map(id => moved.has(id) ? ids[index++] : id);
+  while (index < ids.length) merged.push(ids[index++]);
+  if (grouped) next.grouped[card.dataset.group] = merged;
+  else next.ungrouped = merged;
   savingOrder = true;
   try {
     await chrome.storage.local.set({ cardOrders: next });
@@ -56,11 +66,59 @@ async function moveCard(card, target, focusHandle = false) {
   }
 }
 
+function cardDropAt(card, x, y) {
+  const grid = card.parentElement;
+  const bounds = grid.getBoundingClientRect();
+  if (x < bounds.left - 16 || x > bounds.right + 16 || y < bounds.top - 8 || y > bounds.bottom + 8) return null;
+  const items = [...grid.children].filter(element => element.classList.contains('card')).map((element, index) => ({ element, index, rect: element.getBoundingClientRect() }));
+  const rows = [];
+  for (const item of items) {
+    const row = rows.find(row => Math.abs(row.top - item.rect.top) < 2);
+    if (row) { row.items.push(item); row.bottom = Math.max(row.bottom, item.rect.bottom); }
+    else rows.push({ top: item.rect.top, bottom: item.rect.bottom, items: [item] });
+  }
+  const insertion = (index, left, top, width, height) => ({ mode: 'insert', index, marker: { left, top, width, height } });
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    if (y >= row.top - (rowIndex === 0 ? 8 : 0) && y <= row.bottom + (rowIndex === rows.length - 1 ? 8 : 0)) {
+      const before = item => insertion(item.index, item.rect.left - 7, row.top, 3, row.bottom - row.top);
+      const after = item => insertion(item.index + 1, item.rect.right + 4, row.top, 3, row.bottom - row.top);
+      if (x < row.items[0].rect.left) return before(row.items[0]);
+      for (let i = 0; i < row.items.length; i++) {
+        const item = row.items[i];
+        if (x <= item.rect.right) {
+          if (x < item.rect.left) {
+            const previous = row.items[i - 1];
+            return insertion(item.index, (previous.rect.right + item.rect.left) / 2 - 1.5, row.top, 3, row.bottom - row.top);
+          }
+          const edge = Math.min(24, item.rect.width * .1);
+          if (x < item.rect.left + edge) return before(item);
+          if (x > item.rect.right - edge) return after(item);
+          return item.element === card ? null : { mode: 'swap', target: item.element };
+        }
+      }
+      return after(row.items[row.items.length - 1]);
+    }
+    const next = rows[rowIndex + 1];
+    if (next && y > row.bottom && y < next.top) return insertion(next.items[0].index, bounds.left, (row.bottom + next.top) / 2 - 1.5, bounds.width, 3);
+  }
+  return null;
+}
+
+async function insertCard(card, index) {
+  if (savingOrder || !rearrange) return;
+  const ids = [...card.parentElement.children].map(element => element.dataset.id);
+  const from = ids.indexOf(card.dataset.id);
+  ids.splice(from, 1);
+  ids.splice(index > from ? index - 1 : index, 0, card.dataset.id);
+  await saveCardOrder(card, ids, true);
+}
+
 function dragHandle(card, info) {
   const handle = document.createElement('button');
   handle.className = 'drag-handle';
   makeIconButton(handle, `Rearrange ${info.name}`, ['M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01']);
-  handle.title = 'Drag to rearrange. Or focus and use arrow keys. Grouped cards move within their group.';
+  handle.title = 'Rearrange';
   handle.addEventListener('keydown', async event => {
     const direction = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
     if (!direction) return;
@@ -75,13 +133,15 @@ function dragHandle(card, info) {
     const start = { x: event.clientX, y: event.clientY };
     const rect = card.getBoundingClientRect();
     let ghost = null;
-    let target = null;
+    let placement = null;
+    let indicator = null;
     dragActive = true;
     handle.setPointerCapture(event.pointerId);
     const cleanup = () => {
       ghost?.remove();
       card.classList.remove('is-dragging');
-      target?.classList.remove('drop-target');
+      placement?.target?.classList.remove('drop-target');
+      indicator?.remove();
       dragActive = false;
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', finish);
@@ -103,17 +163,25 @@ function dragHandle(card, info) {
       }
       ghost.style.left = `${rect.left + current.clientX - start.x}px`;
       ghost.style.top = `${rect.top + current.clientY - start.y}px`;
-      target?.classList.remove('drop-target');
-      const hit = document.elementFromPoint(current.clientX, current.clientY)?.closest('.card');
-      target = hit && hit !== card && hit.parentElement === card.parentElement ? hit : null;
-      target?.classList.add('drop-target');
+      placement?.target?.classList.remove('drop-target');
+      indicator?.remove();
+      placement = cardDropAt(card, current.clientX, current.clientY);
+      if (placement?.mode === 'swap') placement.target.classList.add('drop-target');
+      if (placement?.mode === 'insert') {
+        indicator = document.createElement('div');
+        indicator.className = 'drop-insert-indicator';
+        indicator.setAttribute('aria-hidden', 'true');
+        for (const [key, value] of Object.entries(placement.marker)) indicator.style[key] = `${value}px`;
+        document.body.append(indicator);
+      }
       if (current.clientY < 55) window.scrollBy(0, -18);
       else if (current.clientY > innerHeight - 55) window.scrollBy(0, 18);
     };
     const finish = async () => {
-      const destination = target;
+      const destination = placement;
       cleanup();
-      if (destination) await moveCard(card, destination, true);
+      if (destination?.mode === 'swap') await moveCard(card, destination.target, true, 'swap');
+      else if (destination?.mode === 'insert') await insertCard(card, destination.index);
       else await refresh();
     };
     const cancel = () => { cleanup(); void refresh(); };
@@ -131,118 +199,31 @@ function report(error) {
   $('#status').textContent = error instanceof Error ? error.message : String(error);
 }
 
-function sourceLabel(info) {
-  if (info.installType === 'development') return 'Local · unpacked';
-  if (/^https:\/\/chrome(webstore\.google\.com|\.google\.com\/webstore)(\/|$)/.test(info.updateUrl || '')) return 'Chrome Web Store';
-  // management does not expose fromWebstore. Google's update service is
-  // strong evidence of store distribution, but normal alone also includes CRX.
-  if (/^https:\/\/clients2\.google\.com\/service\/update2\/crx(?:[/?]|$)/.test(info.updateUrl || '')) return 'Chrome Web Store';
-  return { admin: 'Managed by your organization', sideload: 'Installed by other software', normal: 'Installed · source unavailable' }[info.installType] || 'Other installation';
-}
 
-function icon(info) {
-  const holder = document.createElement('span');
-  holder.className = 'icon fallback';
-  holder.textContent = info.name.slice(0, 1).toUpperCase();
-  holder.setAttribute('aria-hidden', 'true');
-  const best = [...(info.icons || [])].sort((a, b) => b.size - a.size)[0];
-  if (best) {
-    const image = document.createElement('img');
-    image.className = 'icon';
-    image.alt = '';
-    image.src = best.url;
-    image.addEventListener('error', () => image.remove());
-    image.addEventListener('load', () => { holder.classList.remove('fallback'); holder.firstChild?.remove(); });
-    holder.append(image);
-  }
-  return holder;
-}
 
-function identity(info) {
-  const container = document.createElement('div');
-  container.className = 'identity';
-  const name = document.createElement('h3');
-  name.className = 'name';
-  name.textContent = info.name;
-  const source = document.createElement('span');
-  source.className = 'source';
-  source.textContent = sourceLabel(info);
-  const sourceIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  sourceIcon.setAttribute('viewBox', '0 0 24 24');
-  sourceIcon.setAttribute('fill', 'none');
-  sourceIcon.setAttribute('stroke', 'currentColor');
-  sourceIcon.setAttribute('stroke-width', '1.7');
-  sourceIcon.setAttribute('stroke-linecap', 'round');
-  sourceIcon.setAttribute('stroke-linejoin', 'round');
-  sourceIcon.setAttribute('aria-hidden', 'true');
-  const sourcePaths = info.installType === 'development'
-    ? ['M3 6h7l2 2h9v12H3Z', 'M3 6V4h7l2 2']
-    : sourceLabel(info) === 'Chrome Web Store'
-      ? ['M4 9h16v12H4Z', 'M3 9l2-6h14l2 6', 'M8 13v4h8v-4']
-      : ['M12 3 2 8l10 5 10-5Z', 'M2 12l10 5 10-5', 'M2 16l10 5 10-5'];
-  for (const d of sourcePaths) {
-    const path = document.createElementNS(sourceIcon.namespaceURI, 'path');
-    path.setAttribute('d', d);
-    sourceIcon.append(path);
-  }
-  source.prepend(sourceIcon);
-  const state = document.createElement('span');
-  state.className = `extension-state ${info.enabled ? 'is-enabled' : 'is-disabled'}`;
-  state.textContent = info.enabled ? 'Enabled' : 'Disabled';
-  container.append(name, source, state);
-  return container;
-}
 
-function button(text, handler, className = '') {
-  const element = document.createElement('button');
-  element.textContent = text;
-  element.className = className;
-  element.addEventListener('click', async () => {
-    element.disabled = true;
-    try { await handler(); } catch (error) { report(error); }
-    finally { element.disabled = false; }
-  });
-  return element;
-}
 
-async function openDetails(id) {
-  await chrome.tabs.create({ url: `chrome://extensions/?id=${encodeURIComponent(id)}` });
-}
 
-function makeIconButton(element, name, paths) {
-  element.setAttribute('aria-label', name);
-  element.title ||= name;
-  element.classList.add('icon-button');
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '1.8');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('aria-hidden', 'true');
-  for (const d of paths) {
-    const path = document.createElementNS(svg.namespaceURI, 'path');
-    path.setAttribute('d', d);
-    svg.append(path);
-  }
-  element.replaceChildren(svg);
-  return element;
-}
 
 function renderCards() {
-  const visible = extensions.filter(info => selected.has(info.id));
+  $('#reset-order').hidden = !rearrange;
+  const chosen = extensions.filter(info => selected.has(info.id));
+  const selectedExtensions = extensions.filter(info => info.id !== chrome.runtime.id && (selected.has(info.id) || fadingFavorites.has(info.id)));
+  const query = $('#page-selected-search').value.trim().toLocaleLowerCase();
+  const visible = selectedExtensions.filter(info => info.name.toLocaleLowerCase().includes(query));
   if (rearrange) visible.sort((a, b) => {
     const orderA = grouped ? cardOrders.grouped[groupKey(a)] : cardOrders.ungrouped;
     const orderB = grouped ? cardOrders.grouped[groupKey(b)] : cardOrders.ungrouped;
     const rank = (order, id) => order.indexOf(id) < 0 ? Number.MAX_SAFE_INTEGER : order.indexOf(id);
     return rank(orderA, a.id) - rank(orderB, b.id);
   });
-  $('#count').textContent = visible.length;
-  $('#empty').hidden = visible.length > 0;
-  const cards = visible.map(info => {
+  $('#count').textContent = chosen.filter(info => info.id !== chrome.runtime.id).length;
+  $('#empty').hidden = selectedExtensions.length > 0;
+  $('#cards-no-results').hidden = visible.length > 0 || selectedExtensions.length === 0;
+  const makeCard = info => {
     const card = document.createElement('article');
     card.className = 'card';
+    if (!selected.has(info.id)) fadeFavorite(card, info.id);
     card.dataset.id = info.id;
     card.dataset.group = groupKey(info);
     const heading = document.createElement('div');
@@ -256,7 +237,7 @@ function renderCards() {
     toggle.setAttribute('aria-label', `Enable ${info.name}`);
     toggle.checked = info.enabled;
     toggle.disabled = info.enabled ? info.mayDisable === false : info.mayEnable === false;
-    toggle.title = toggle.disabled ? 'Controlled by your organization' : info.enabled ? 'Turn off' : 'Turn on';
+    toggle.title = toggle.disabled ? 'Managed' : info.enabled ? 'Disable' : 'Enable';
     toggle.addEventListener('change', async () => {
       toggle.disabled = true;
       try {
@@ -271,7 +252,7 @@ function renderCards() {
     actions.className = 'card-actions';
     const options = button('Options', async () => { await chrome.tabs.create({ url: info.optionsUrl }); });
     options.disabled = !info.optionsUrl || !info.enabled;
-    options.title = !info.optionsUrl ? 'This extension has no options page' : !info.enabled ? 'Enable this extension to open its options' : 'Open extension options';
+    options.title = !info.optionsUrl ? 'No options' : !info.enabled ? 'Enable first' : 'Options';
     const remove = button('Remove', async () => {
       if (info.id === chrome.runtime.id) {
         await chrome.management.uninstallSelf({ showConfirmDialog: true });
@@ -284,7 +265,7 @@ function renderCards() {
     const errors = button('Errors ↗', async () => {
       await chrome.tabs.create({ url: `chrome://extensions/?errors=${encodeURIComponent(info.id)}` });
     });
-    errors.title = 'Open Chrome’s error reports. This shortcut does not indicate whether errors exist; Developer mode may be required.';
+    errors.title = 'Errors';
     const restart = button('Restart ↻', async () => {
       if (info.id === chrome.runtime.id) {
         chrome.runtime.reload();
@@ -301,12 +282,12 @@ function renderCards() {
       } finally { await refresh(); }
     });
     restart.disabled = !info.enabled || info.mayDisable === false;
-    restart.title = !info.enabled ? 'Enable this extension before restarting it' : info.mayDisable === false ? 'Controlled by your organization' : 'Turn off and back on. To reload unpacked file changes, use Chrome’s Reload button.';
+    restart.title = !info.enabled ? 'Enable first' : info.mayDisable === false ? 'Managed' : 'Reload';
     makeIconButton(restart, 'Restart extension', ['M20 7v5h-5', 'M20 12a8 8 0 1 0-2.3 5.7', 'M20 12a8 8 0 0 0-2.3-5.7']);
     if (info.id === chrome.runtime.id) {
       restart.setAttribute('aria-label', 'Reload this extension');
-      restart.title = 'Reload Extension Manager Extension and apply file changes';
-      toggle.title = 'Turn off this manager. Re-enable it from chrome://extensions.';
+      restart.title = 'Reload';
+      toggle.title = 'Disable';
     }
     restart.classList.add('restart');
     heading.insertBefore(restart, label);
@@ -317,37 +298,107 @@ function renderCards() {
     makeIconButton(errors, 'Errors', ['M10.3 4.2 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0Z', 'M12 9v5', 'M12 17h.01']);
     makeIconButton(remove, 'Uninstall extension', ['M3 6h18', 'M9 6V3h6v3', 'M5 6l1 15h12l1-15', 'M10 10v7', 'M14 10v7']);
     remove.title = 'Uninstall';
-    // Chrome's public API exposes neither error counts nor other extensions'
-    // incognito grants. Link to the real setting rather than inventing state.
-    const incognito = button('Allow in incognito ↗', () => openDetails(info.id), 'incognito');
-    incognito.title = 'Open Chrome settings to view or change Allow in incognito';
-    makeIconButton(incognito, 'Allow in incognito', ['M4 10h16', 'M7 10l2-7h6l2 7', 'M3 17a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z', 'M13 17a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z', 'M11 17h2']);
     const hide = makeIconButton(button('', async () => {
       const prefs = await chrome.storage.local.get('selectedIds');
-      await chrome.storage.local.set({ selectedIds: (prefs.selectedIds || []).filter(id => id !== info.id) });
+      const next = new Set(prefs.selectedIds || []);
+      if (next.has(info.id)) next.delete(info.id); else next.add(info.id);
+      next.add(chrome.runtime.id);
+      await chrome.storage.local.set({ selectedIds: [...next] });
       await refresh();
-      $('#status').textContent = `${info.name} hidden from this page. Add it back using Choose extensions.`;
-    }, 'hide-card'), 'Remove from this page', ['M6 6l12 12', 'M18 6 6 18']);
-    hide.title = 'Remove from this page only. Keep the extension installed.';
-    actions.append(options, details, errors, incognito, remove);
-    if (rearrange) actions.append(dragHandle(card, info));
-    actions.append(hide);
+      burstFavoriteStar([...document.querySelectorAll('#cards .card')].find(card => card.dataset.id === info.id)?.querySelector('.hide-card'));
+      $('#status').textContent = `${info.name} ${next.has(info.id) ? 'added to' : 'removed from'} Favorites.`;
+    }, 'hide-card'), selected.has(info.id) ? 'Remove from Favorites' : 'Add to Favorites', ['m12 3 2.8 5.7 6.3.9-4.55 4.43 1.08 6.27L12 17.34l-5.63 2.96 1.08-6.27L2.9 9.6l6.3-.9Z']);
+    hide.title = selected.has(info.id) ? 'Unfavorite' : 'Favorite';
+    hide.setAttribute('aria-pressed', String(selected.has(info.id)));
+    actions.append(options, details, errors, remove);
+    if (rearrange && info.id !== chrome.runtime.id) actions.append(dragHandle(card, info));
+    if (info.id !== chrome.runtime.id) actions.append(hide);
     card.append(heading, actions);
     return card;
-  });
+  };
+  const cards = visible.map(makeCard);
+  const remaining = extensions.filter(info => info.id !== chrome.runtime.id);
+  $('#page-all-count').textContent = `(${remaining.length})`;
+  renderAllExtensions = () => {
+    if (!$('#page-all-extensions').open) { $('#page-all-list').replaceChildren(); return; }
+    const query = $('#page-all-search').value.trim().toLocaleLowerCase();
+    const matches = remaining.filter(info => info.name.toLocaleLowerCase().includes(query));
+    $('#page-all-empty').hidden = matches.length > 0;
+    const compactRow = info => {
+      const original = makeCard(info);
+      const row = document.createElement('div');
+      row.className = 'all-extension-row';
+      row.dataset.id = info.id;
+      const link = document.createElement('a');
+      link.className = 'all-extension-link';
+      link.setAttribute('aria-label', `Options for ${info.name}`);
+      link.title = !info.optionsUrl ? 'No options' : !info.enabled ? 'Enable first' : 'Options';
+      if (info.enabled && info.optionsUrl) {
+        link.href = info.optionsUrl;
+        link.addEventListener('click', async event => { event.preventDefault(); try { await chrome.tabs.create({ url: info.optionsUrl }); } catch (error) { report(error); } });
+      } else link.setAttribute('aria-disabled', 'true');
+      const identity = original.querySelector('.identity');
+      identity.querySelector('.extension-state').remove();
+      link.append(original.querySelector('.icon'), identity);
+      const controls = document.createElement('div');
+      controls.className = 'all-extension-controls';
+      const isFavorite = selected.has(info.id);
+      const add = makeIconButton(button('', async () => {
+        const prefs = await chrome.storage.local.get('selectedIds');
+        const next = new Set(prefs.selectedIds || []);
+        next.add(chrome.runtime.id);
+        if (next.has(info.id)) next.delete(info.id);
+        else next.add(info.id);
+        await chrome.storage.local.set({ selectedIds: [...next] });
+        await refresh();
+        const favoriteButton = [...document.querySelectorAll('#page-all-list .all-extension-row')].find(element => element.dataset.id === info.id)?.querySelector('.add-extension');
+        burstFavoriteStar(favoriteButton);
+        $('#status').textContent = `${info.name} ${next.has(info.id) ? 'added to' : 'removed from'} Favorites.`;
+      }, 'add-extension'), isFavorite ? 'Remove from Favorites' : 'Add to Favorites', ['m12 3 2.8 5.7 6.3.9-4.55 4.43 1.08 6.27L12 17.34l-5.63 2.96 1.08-6.27L2.9 9.6l6.3-.9Z']);
+      add.title = isFavorite ? 'Unfavorite' : 'Favorite';
+      add.setAttribute('aria-pressed', String(isFavorite));
+      add.classList.toggle('is-favorite', isFavorite);
+      controls.append(
+        original.querySelector('[aria-label="Options"]'),
+        original.querySelector('[aria-label="Details"]'),
+        original.querySelector('[aria-label="Errors"]'),
+        original.querySelector('[aria-label="Uninstall extension"]'),
+        original.querySelector('.restart'),
+        original.querySelector('.enabled-label')
+      );
+      row.append(add, link, controls);
+      return row;
+    };
+    if (!grouped) $('#page-all-list').replaceChildren(...matches.map(compactRow));
+    else {
+      const sections = [];
+      for (const [key, title] of EXTENSION_GROUPS) {
+        const members = matches.filter(info => groupKey(info) === key);
+        if (!members.length) continue;
+        const section = document.createElement('section');
+        section.className = 'extension-group';
+        const heading = document.createElement('h3');
+        heading.className = 'group-heading';
+        heading.textContent = title;
+        section.append(heading, ...members.map(compactRow));
+        sections.push(section);
+      }
+      $('#page-all-list').replaceChildren(...sections);
+    }
+  };
+  renderAllExtensions();
+  const self = extensions.find(info => info.id === chrome.runtime.id);
+  $('#manager-controls').replaceChildren();
+  if (self) {
+    const selfCard = makeCard(self);
+    selfCard.querySelector('[aria-label="Options"]').remove();
+    $('#manager-controls').append(selfCard.querySelector('.restart'), selfCard.querySelector('.enabled-label'), ...selfCard.querySelector('.card-actions').children);
+  }
   $('#cards').classList.toggle('grouped', grouped);
   if (grouped) {
-    const definitions = [
-      ['Enabled · Local unpacked', info => info.enabled && info.installType === 'development'],
-      ['Enabled · Chrome Web Store', info => info.enabled && sourceLabel(info) === 'Chrome Web Store'],
-      ['Disabled · Local unpacked', info => !info.enabled && info.installType === 'development'],
-      ['Disabled · Chrome Web Store', info => !info.enabled && sourceLabel(info) === 'Chrome Web Store'],
-      ['Enabled · Other installations', info => info.enabled && info.installType !== 'development' && sourceLabel(info) !== 'Chrome Web Store'],
-      ['Disabled · Other installations', info => !info.enabled && info.installType !== 'development' && sourceLabel(info) !== 'Chrome Web Store'],
-    ];
     const sections = [];
-    for (const [title, matches] of definitions) {
-      const members = cards.filter((_, index) => matches(visible[index]));
+    for (const [key, title] of EXTENSION_GROUPS) {
+      const members = cards.filter((_, index) => groupKey(visible[index]) === key);
       if (!members.length) continue;
       const section = document.createElement('section');
       section.className = 'extension-group';
@@ -365,7 +416,7 @@ function renderCards() {
   } else {
     $('#cards').replaceChildren(...cards);
   }
-  $('#selected-count').textContent = `${visible.length} selected`;
+  $('#selected-count').textContent = `${chosen.length} selected`;
 }
 
 function renderChoices() {
@@ -375,13 +426,14 @@ function renderChoices() {
   const selection = checked('selection');
   const source = checked('source');
   const status = checked('status');
+  const pinManager = !query && !selection.size && !source.size && !status.size;
   const matches = extensions.filter(info => {
     if (!info.name.toLocaleLowerCase().includes(query)) return false;
     if (selection.size && !selection.has(selected.has(info.id) ? 'selected' : 'unselected')) return false;
     if (status.size && !status.has(info.enabled ? 'enabled' : 'disabled')) return false;
     const sourceType = info.installType === 'development' ? 'unpacked' : sourceLabel(info) === 'Chrome Web Store' ? 'store' : 'other';
     return !source.size || source.has(sourceType);
-  });
+  }).sort((a, b) => (pinManager ? Number(b.id === chrome.runtime.id) - Number(a.id === chrome.runtime.id) : 0) || a.name.localeCompare(b.name));
   $('#match-count').textContent = `${matches.length} of ${extensions.length} shown`;
   $('#clear-filters').disabled = !query && !selection.size && !source.size && !status.size;
   $('#no-results').hidden = matches.length > 0;
@@ -391,8 +443,11 @@ function renderChoices() {
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.checked = selected.has(info.id);
+    check.disabled = info.id === chrome.runtime.id;
+    if (check.disabled) check.title = 'Always selected';
     check.setAttribute('aria-label', `Show ${info.name}`);
     check.addEventListener('change', async () => {
+      if (info.id === chrome.runtime.id) { check.checked = true; return; }
       savingSelection = true;
       for (const input of $('#choices').querySelectorAll('input')) input.disabled = true;
       const next = new Set(selected);
@@ -418,8 +473,10 @@ async function refresh() {
     const [all, prefs] = await Promise.all([chrome.management.getAll(), chrome.storage.local.get(['selectedIds', 'theme', 'selfIncluded', 'grouped', 'rearrange', 'cardOrders'])]);
     if (version !== refreshVersion) return;
     extensions = all.filter(info => info.type === 'extension').sort((a, b) => a.name.localeCompare(b.name));
-    selected = new Set(prefs.selectedIds || []);
-    if (!prefs.selfIncluded) {
+    const nextSelection = new Set(prefs.selectedIds || []);
+    trackFavoriteRemovals(selected, nextSelection, refresh);
+    selected = nextSelection;
+    if (!selected.has(chrome.runtime.id) || !prefs.selfIncluded) {
       selected.add(chrome.runtime.id);
       await chrome.storage.local.set({ selectedIds: [...selected], selfIncluded: true });
       if (version !== refreshVersion) return;
@@ -443,7 +500,7 @@ async function refresh() {
 function applyTheme() {
   document.documentElement.dataset.theme = theme;
   $('#theme').textContent = theme === 'dark' ? '☀' : '☾';
-  const label = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+  const label = theme === 'dark' ? 'Light mode' : 'Dark mode';
   $('#theme').setAttribute('aria-label', label);
   $('#theme').title = label;
 }
@@ -457,6 +514,7 @@ function openPicker() {
 
 function resetPickerFilters() {
   $('#search').value = '';
+  $('#picker-search-clear').hidden = true;
   for (const checkbox of document.querySelectorAll('#picker-filters input')) checkbox.checked = false;
 }
 
@@ -478,7 +536,29 @@ if (!('closedBy' in HTMLDialogElement.prototype)) {
     startedOutside = false;
   });
 }
-$('#search').addEventListener('input', renderChoices);
+$('#search').addEventListener('input', () => {
+  $('#picker-search-clear').hidden = !$('#search').value;
+  renderChoices();
+});
+$('#picker-search-clear').addEventListener('click', () => {
+  $('#search').value = '';
+  $('#picker-search-clear').hidden = true;
+  renderChoices();
+  $('#search').focus({ preventScroll: true });
+});
+$('#page-all-extensions').addEventListener('toggle', () => renderAllExtensions());
+$('#page-all-search').addEventListener('input', () => renderAllExtensions());
+$('#page-selected-search').addEventListener('input', renderCards);
+for (const wrapper of document.querySelectorAll('.page-search-control')) {
+  const input = wrapper.querySelector('input');
+  const clear = wrapper.querySelector('button');
+  input.addEventListener('input', () => { clear.hidden = !input.value; });
+  clear.addEventListener('click', () => {
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus({ preventScroll: true });
+  });
+}
 $('#picker-filters').addEventListener('change', renderChoices);
 $('#clear-filters').addEventListener('click', () => { resetPickerFilters(); renderChoices(); });
 $('#rearrange').addEventListener('change', async () => {
@@ -486,6 +566,28 @@ $('#rearrange').addEventListener('change', async () => {
     await chrome.storage.local.set({ rearrange: $('#rearrange').checked });
     await refresh();
   } catch (error) { report(error); await refresh(); }
+});
+$('#reset-order').addEventListener('click', async () => {
+  if (!rearrange || savingOrder || dragActive) return;
+  const next = structuredClone(cardOrders);
+  const alphabetical = extensions.filter(info => selected.has(info.id) && info.id !== chrome.runtime.id).map(info => info.id);
+  if (grouped) {
+    for (const [key] of EXTENSION_GROUPS) next.grouped[key] = extensions.filter(info => selected.has(info.id) && info.id !== chrome.runtime.id && groupKey(info) === key).map(info => info.id);
+  } else {
+    next.ungrouped = alphabetical;
+  }
+  savingOrder = true;
+  $('#reset-order').disabled = true;
+  try {
+    await chrome.storage.local.set({ cardOrders: next });
+    cardOrders = next;
+    $('#status').textContent = 'Card order reset to alphabetical.';
+  } catch (error) { report(error); }
+  finally {
+    savingOrder = false;
+    $('#reset-order').disabled = false;
+    await refresh();
+  }
 });
 for (const radio of document.querySelectorAll('[name="view-mode"]')) radio.addEventListener('change', async () => {
   try {
