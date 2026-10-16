@@ -2,7 +2,7 @@
 :root[data-theme="light"] { color-scheme: light; --bg: #f3f6fa; --panel: #fbfcfe; --border: #c5d1df; --text: #293b50; --muted: #566b82; --button: #e5ecf4; --hover: #d6e1ee; --accent: #526f93; --ink: #fff; --field: #fff; }
 * { box-sizing: border-box; }
 body { margin: 0; font-size: 13px; }
-main { max-inline-size: 1160px; margin: 44px auto; padding: 0 24px; }
+main { max-inline-size: 1160px; margin: 44px auto; padding: 0 24px; overflow-anchor: none; }
 header, .header-actions, .list-heading, .card-heading, .card-actions, .dialog-heading, .dialog-footer { display: flex; align-items: center; gap: 10px; }
 header { justify-content: space-between; flex-wrap: wrap; margin-block-end: 30px; gap: 18px; }
 .header-actions { margin-inline-start: auto; }
@@ -48,6 +48,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .group-heading { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
 .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; }
 .card-actions .hide-card { margin-inline-start: auto; color: var(--accent); background: transparent; border-color: transparent; }
+.card-actions .hide-card[aria-pressed="true"] { color: #ffd578; }
+:root[data-theme="light"] .card-actions .hide-card[aria-pressed="true"] { color: #a8750c; }
 .card-actions .hide-card[aria-pressed="true"] svg { fill: currentColor; }
 .favorite-spark { position: fixed; z-index: 110; inline-size: 4px; block-size: 4px; margin: -2px; border-radius: 50%; background: #ffd578; box-shadow: 0 0 4px #ffd57888; pointer-events: none; }
 .card.favorite-leaving, .popup-card.favorite-leaving { position: relative; isolation: isolate; background: transparent; border-color: transparent; }
@@ -68,7 +70,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
   .favorite-leaving .popup-primary > :not(.favorite-toggle),
   .favorite-leaving .popup-state { animation: none; opacity: .65; }
 }
-.card-actions .hide-card:hover { background: var(--hover); color: var(--text); }
+.card-actions .hide-card:hover { background: transparent; filter: brightness(1.15); }
 .card { display: flex; flex-direction: column; block-size: 156px; min-inline-size: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px 16px; }
 .card > .card-actions { margin-block-start: auto; }
 .card-heading .name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
@@ -78,7 +80,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .drop-insert-indicator { position: fixed; z-index: 101; pointer-events: none; border-radius: 3px; background: var(--accent); box-shadow: 0 0 7px #95afce66; }
 .drag-ghost { position: fixed; z-index: 100; pointer-events: none; opacity: .9; box-shadow: 0 12px 28px #0005; margin: 0; }
 .card-heading { margin-block-end: 10px; }
-.icon { inline-size: 32px; block-size: 32px; flex: 0 0 32px; object-fit: contain; display: grid; place-items: center; border-radius: 6px; }
+.icon { position: relative; inline-size: 32px; block-size: 32px; flex: 0 0 32px; object-fit: contain; display: grid; place-items: center; border-radius: 6px; }
+.icon > img.icon { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; }
 .fallback { background: var(--button); color: var(--accent); font-size: 17px; font-weight: 700; }
 .identity { flex: 1; min-inline-size: 0; }
 .name { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.45; }

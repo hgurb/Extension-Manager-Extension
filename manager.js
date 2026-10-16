@@ -239,6 +239,11 @@ function renderCards() {
     toggle.disabled = info.enabled ? info.mayDisable === false : info.mayEnable === false;
     toggle.title = toggle.disabled ? 'Managed' : info.enabled ? 'Disable' : 'Enable';
     toggle.addEventListener('change', async () => {
+      if (info.id === chrome.runtime.id && !toggle.checked &&
+          !confirm('Turn off extension Extension Manager Extension? This will close this extension page.')) {
+        toggle.checked = true;
+        return;
+      }
       toggle.disabled = true;
       try {
         await chrome.management.setEnabled(info.id, toggle.checked);
@@ -283,7 +288,7 @@ function renderCards() {
     });
     restart.disabled = !info.enabled || info.mayDisable === false;
     restart.title = !info.enabled ? 'Enable first' : info.mayDisable === false ? 'Managed' : 'Reload';
-    makeIconButton(restart, 'Restart extension', ['M20 7v5h-5', 'M20 12a8 8 0 1 0-2.3 5.7', 'M20 12a8 8 0 0 0-2.3-5.7']);
+    makeIconButton(restart, 'Restart extension', ['M3 12a9 9 0 0 1 15.36-6.36L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-15.36 6.36L3 16', 'M3 21v-5h5']);
     if (info.id === chrome.runtime.id) {
       restart.setAttribute('aria-label', 'Reload this extension');
       restart.title = 'Reload';
@@ -492,7 +497,9 @@ async function refresh() {
     $('#rearrange').checked = rearrange;
     for (const radio of document.querySelectorAll('[name="view-mode"]')) radio.checked = radio.value === (grouped ? 'grouped' : 'ungrouped');
     applyTheme();
+    const restoreListPosition = $('#picker').open ? () => {} : preserveListPosition(document, '#page-all-list .all-extension-row', '#page-all-extensions[open] > summary');
     renderCards();
+    restoreListPosition();
     if ($('#picker').open) renderChoices();
   } catch (error) { report(error); }
 }

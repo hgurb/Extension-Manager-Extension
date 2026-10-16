@@ -10,7 +10,7 @@ body { inline-size: 360px; max-block-size: 590px; display: flex; flex-direction:
 .manager-tools .icon-button svg { inline-size: 15px; block-size: 15px; }
 .popup-nav .manager-tools .icon-button:hover { background: var(--hover); }
 .manager-shortcut img { display: block; flex-shrink: 0; }
-#popup-list { overflow-y: auto; overscroll-behavior: contain; min-block-size: 0; padding: 8px 10px; scrollbar-gutter: stable; }
+#popup-list { overflow-y: auto; overflow-anchor: none; overscroll-behavior: contain; min-block-size: 0; padding: 8px 10px; scrollbar-gutter: stable; }
 .popup-group + .popup-group { margin-block-start: 10px; padding-block-start: 8px; border-block-start: 1px solid var(--border); }
 .popup-group-title { margin: 0 0 6px; padding-inline: 2px; font-size: 10px; font-weight: 600; color: var(--muted); }
 .popup-card { display: flex; align-items: center; gap: 8px; min-inline-size: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
@@ -40,9 +40,12 @@ body { inline-size: 360px; max-block-size: 590px; display: flex; flex-direction:
 .popup-controls .icon-button { border-color: transparent; background: transparent; color: var(--muted); }
 .popup-controls .icon-button:not(:disabled):hover { background: var(--hover); color: var(--text); }
 .popup-controls .favorite-toggle svg { stroke-width: 1.4; }
-.popup-controls .favorite-toggle.is-favorite { color: var(--accent); border-color: transparent; background: transparent; }
+.popup-controls .favorite-toggle.is-favorite { color: #ffd578; border-color: transparent; background: transparent; }
+:root[data-theme="light"] .popup-controls .favorite-toggle.is-favorite,
+:root[data-theme="light"] .popup-controls .favorite-toggle.is-favorite:not(:disabled):hover { color: #a8750c; }
 .popup-controls .favorite-toggle.is-favorite svg { fill: currentColor; stroke-width: 1.8; }
-.popup-controls .favorite-toggle:not(:disabled):hover { color: var(--accent); background: transparent; border-color: transparent; }
+.popup-controls .favorite-toggle:not(:disabled):hover { color: #ffd578; background: transparent; border-color: transparent; filter: brightness(1.15); }
+.popup-controls .favorite-toggle:not(.is-favorite):not(:disabled):hover { color: var(--accent); }
 .popup-state .enabled-label { min-block-size: 28px; padding-inline: 4px 0; }
 .popup-controls .restart { color: var(--muted); }
 #status { margin: 0; padding: 0; min-block-size: 0; flex-shrink: 0; }

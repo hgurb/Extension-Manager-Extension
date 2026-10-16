@@ -1,5 +1,29 @@
 'use strict';
 
+// Preserve the visible row, rather than its old scroll offset, when content above grows.
+function preserveListPosition(root, rowSelector, headingSelector, scroller = window) {
+  const viewport = scroller === window ? { top: 0, bottom: innerHeight } : scroller.getBoundingClientRect();
+  const visible = element => {
+    const rect = element.getBoundingClientRect();
+    return rect.bottom > viewport.top && rect.top < viewport.bottom;
+  };
+  const row = [...root.querySelectorAll(rowSelector)].find(visible);
+  const heading = root.querySelector(headingSelector);
+  const anchor = row || (heading && visible(heading) ? heading : null);
+  if (!anchor) return () => {};
+  const top = anchor.getBoundingClientRect().top;
+  const id = row?.dataset.id;
+  return () => {
+    const replacement = id
+      ? [...root.querySelectorAll(rowSelector)].find(element => element.dataset.id === id)
+      : root.querySelector(headingSelector);
+    if (!replacement) return;
+    const delta = replacement.getBoundingClientRect().top - top;
+    if (scroller === window) window.scrollBy({ top: delta, behavior: 'instant' });
+    else scroller.scrollTop += delta;
+  };
+}
+
 function burstFavoriteStar(star) {
   if (!star) return;
   const glyph = star.querySelector('svg');
@@ -97,6 +121,11 @@ function identity(info) {
   const name = document.createElement('h3');
   name.className = 'name';
   name.textContent = info.name;
+  name.addEventListener('pointerenter', () => {
+    const clipped = name.scrollHeight > name.clientHeight + 1 || name.scrollWidth > name.clientWidth + 1;
+    if (clipped) name.title = info.name;
+    else name.removeAttribute('title');
+  });
   const source = document.createElement('span');
   source.className = 'source';
   source.textContent = sourceLabel(info);

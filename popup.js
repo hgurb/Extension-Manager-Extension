@@ -133,7 +133,7 @@ function popupCard(info, showSource = true, inFavorites = false) {
 
   const state = document.createElement('div');
   state.className = 'popup-state';
-  const refresh = control('Refresh extension', ['M20 7v5h-5', 'M20 12a8 8 0 1 0-2.3 5.7', 'M20 12a8 8 0 0 0-2.3-5.7'], () => perform(async () => {
+  const refresh = control('Refresh extension', ['M3 12a9 9 0 0 1 15.36-6.36L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-15.36 6.36L3 16', 'M3 21v-5h5'], () => perform(async () => {
     if (info.id === chrome.runtime.id) { chrome.runtime.reload(); return; }
     await chrome.management.setEnabled(info.id, false);
     try { await chrome.management.setEnabled(info.id, true); }
@@ -208,6 +208,7 @@ async function refreshPopup() {
     const [all, prefs, session] = await Promise.all([chrome.management.getAll(), chrome.storage.local.get(['selectedIds', 'theme', 'grouped', 'rearrange', 'cardOrders']), chrome.storage.session.get(['popupRemainingOpen', 'popupSelectedQuery', 'popupRemainingQuery'])]);
     if (version !== renderVersion || busy) return;
     const scrollTop = $('#popup-list').scrollTop;
+    const restoreListPosition = preserveListPosition($('#popup-list'), '.remaining-content .popup-card', '.popup-remaining[open] > summary', $('#popup-list'));
     const focusedSearch = document.activeElement?.classList.contains('popup-search') ? document.activeElement.getAttribute('aria-label') : null;
     const caret = focusedSearch ? document.activeElement.selectionStart : null;
     if (!queriesLoaded) {
@@ -221,6 +222,7 @@ async function refreshPopup() {
     favoriteIds = ids;
     const extensions = all.filter(info => info.type === 'extension' && info.id !== chrome.runtime.id).sort((a, b) => a.name.localeCompare(b.name));
     const visible = extensions.filter(info => ids.has(info.id) || fadingFavorites.has(info.id));
+    const showFavoritesSearch = extensions.filter(info => ids.has(info.id)).length > 1;
     const remaining = extensions;
     if (remainingOpen === null) remainingOpen = session.popupRemainingOpen === true;
     $('#popup-empty').hidden = visible.length > 0;
@@ -229,24 +231,26 @@ async function refreshPopup() {
     const selectedSearch = document.createElement('input');
     selectedSearch.type = 'search';
     selectedSearch.className = 'popup-search';
-    selectedSearch.placeholder = 'Search selected extensions…';
-    selectedSearch.setAttribute('aria-label', 'Search selected extensions');
+    selectedSearch.placeholder = 'Search favorites…';
+    selectedSearch.setAttribute('aria-label', 'Search favorites');
     selectedSearch.autocomplete = 'off';
     selectedSearch.value = selectedQuery;
     const selectedEmpty = document.createElement('p');
     selectedEmpty.className = 'remaining-empty';
-    selectedEmpty.textContent = 'No matching selected extensions.';
+    selectedEmpty.textContent = 'No matching favorites.';
     selectedEmpty.setAttribute('role', 'status');
     selectedEmpty.hidden = true;
     const populateSelected = () => {
-      const query = selectedQuery.trim().toLocaleLowerCase();
+      const query = showFavoritesSearch ? selectedQuery.trim().toLocaleLowerCase() : '';
       const matches = visible.filter(info => info.name.toLocaleLowerCase().includes(query));
       selectedList.replaceChildren(...popupEntries(matches, prefs));
       selectedEmpty.hidden = matches.length > 0 || visible.length === 0;
       prepareMarquees(selectedList);
     };
     selectedSearch.addEventListener('input', () => { selectedQuery = selectedSearch.value; populateSelected(); void saveSearches(); });
-    $('#popup-list').replaceChildren(searchControl(selectedSearch, 'Clear selected search'), selectedList, selectedEmpty);
+    const favoritesSearch = searchControl(selectedSearch, 'Clear favorites search');
+    favoritesSearch.hidden = !showFavoritesSearch;
+    $('#popup-list').replaceChildren(favoritesSearch, selectedList, selectedEmpty);
     populateSelected();
     if (remaining.length) {
       const details = document.createElement('details');
@@ -280,6 +284,7 @@ async function refreshPopup() {
       summary.addEventListener('click', () => { scrollOnOpen = !details.open; });
       search.addEventListener('click', scrollToSection);
       search.addEventListener('focus', scrollToSection);
+      let contentPopulated = false;
       const populate = () => {
         if (!details.open) return;
         const query = remainingQuery.trim().toLocaleLowerCase();
@@ -287,12 +292,14 @@ async function refreshPopup() {
         content.replaceChildren(...popupEntries(matches, prefs, false));
         empty.hidden = matches.length > 0;
         prepareMarquees(content);
+        contentPopulated = true;
       };
       search.addEventListener('input', () => { remainingQuery = search.value; populate(); void saveSearches(); });
       details.addEventListener('toggle', async () => {
         if (!details.isConnected) return;
         remainingOpen = details.open;
-        populate();
+        if (details.open && !contentPopulated) populate();
+        if (!details.open) contentPopulated = false;
         if (details.open && scrollOnOpen) scrollToSection();
         scrollOnOpen = false;
         try { await chrome.storage.session.set({ popupRemainingOpen: details.open }); }
@@ -302,9 +309,10 @@ async function refreshPopup() {
       populate();
     }
     $('#popup-list').scrollTop = scrollTop;
+    restoreListPosition();
     prepareMarquees(selectedList);
     const focusTarget = !opened ? selectedSearch : [...document.querySelectorAll('.popup-search')].find(input => input.getAttribute('aria-label') === focusedSearch);
-    if (focusTarget) {
+    if (focusTarget && (focusTarget !== selectedSearch || showFavoritesSearch)) {
       focusTarget.focus({ preventScroll: true });
       const position = caret === null ? focusTarget.value.length : caret;
       focusTarget.setSelectionRange(position, position);
@@ -316,7 +324,7 @@ async function refreshPopup() {
 $('#open-manager').addEventListener('click', async () => { try { await openManager(); } catch (error) { report(error); } });
 $('#manager-tools').append(
   control('Manager details', ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z', 'M12 11v6', 'M12 7h.01'], () => openDetails(chrome.runtime.id)),
-  control('Reload manager', ['M20 7v5h-5', 'M20 12a8 8 0 1 0-2.3 5.7', 'M20 12a8 8 0 0 0-2.3-5.7'], () => { chrome.runtime.reload(); })
+  control('Reload manager', ['M3 12a9 9 0 0 1 15.36-6.36L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-15.36 6.36L3 16', 'M3 21v-5h5'], () => { chrome.runtime.reload(); })
 );
 $('#open-chrome').addEventListener('click', async () => { try { await chrome.tabs.create({ url: 'chrome://extensions/' }); } catch (error) { report(error); } });
 for (const name of ['onInstalled', 'onUninstalled', 'onEnabled', 'onDisabled']) chrome.management[name].addListener(refreshPopup);
