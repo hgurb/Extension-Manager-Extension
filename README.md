@@ -6,7 +6,7 @@ Bored of Chrome’s extension manager managing your extensions? Having an extens
 
 Pick your favorite extensions, drag your extensions around, and keep your extensions’ extension controls close. Less extension clutter, more extension control. Now with an extension cog for your extension options!
 
-### Install the extension
+### Install the extension Extension Manager Extension
 
 Open `chrome://extensions` → turn on **Developer mode** for extension development → **Load unpacked** → select this extension’s extension folder.
 
