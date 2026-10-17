@@ -2,7 +2,7 @@
 
 # Extension Manager Extension
 
-Bored of Chrome’s extension manager managing your extensions? Having an extensional crisis? Here’s an extension to manage your extensions through an extension: Extension Manager Extension! An extension manager extension for extension developers. Obviously.
+Bored of Chrome’s extension manager managing your extensions? Having an extensional crisis? Here’s an extension to manage your extensions through an extension: Extension Manager Extension! An extension manager extension for extension developers. Extenception. Obviously.
 
 Pick your favorite extensions, drag your extensions around, and keep your extensions’ extension controls close. Less extension clutter, more extension control. Now with an extension cog for your extension options!
 
