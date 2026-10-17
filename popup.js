@@ -169,7 +169,16 @@ function popupEntries(visible, prefs, customOrder = true) {
     if (!members.length) continue;
     if (prefs.rearrange && customOrder) {
       const stored = prefs.cardOrders?.grouped?.[key] || [];
-      const order = [...new Set([...stored, ...(prefs.selectedIds || [])])];
+      const order = [...new Set([...stored, ...(prefs.selectedIds || []), ...members.map(info => info.id)])];
+      for (const member of members) {
+        const previous = fadingFavorites.get(member.id)?.popupGroupOrder;
+        if (!previous) continue;
+        order.splice(order.indexOf(member.id), 1);
+        const index = previous.indexOf(member.id);
+        const next = previous.slice(index + 1).find(id => order.includes(id));
+        const before = previous.slice(0, index).reverse().find(id => order.includes(id));
+        order.splice(next ? order.indexOf(next) : before ? order.indexOf(before) + 1 : order.length, 0, member.id);
+      }
       members.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     }
     const section = document.createElement('section');
@@ -219,6 +228,12 @@ async function refreshPopup() {
     document.documentElement.dataset.theme = prefs.theme === 'light' ? 'light' : 'dark';
     const ids = new Set(prefs.selectedIds || []);
     trackFavoriteRemovals(favoriteIds, ids, refreshPopup);
+    for (const [id, pending] of fadingFavorites) {
+      if (pending.popupGroupOrder) continue;
+      const row = [...document.querySelectorAll('#popup-selected .popup-card')].find(element => element.dataset.id === id);
+      const group = row?.closest('.popup-group');
+      if (group) pending.popupGroupOrder = [...group.querySelectorAll('.popup-card')].map(element => element.dataset.id);
+    }
     favoriteIds = ids;
     const extensions = all.filter(info => info.type === 'extension' && info.id !== chrome.runtime.id).sort((a, b) => a.name.localeCompare(b.name));
     const visible = extensions.filter(info => ids.has(info.id) || fadingFavorites.has(info.id));

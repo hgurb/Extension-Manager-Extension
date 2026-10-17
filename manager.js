@@ -554,7 +554,11 @@ $('#picker-search-clear').addEventListener('click', () => {
   renderChoices();
   $('#search').focus({ preventScroll: true });
 });
-$('#page-all-extensions').addEventListener('toggle', () => renderAllExtensions());
+$('#page-all-extensions').addEventListener('toggle', async () => {
+  renderAllExtensions();
+  try { await chrome.storage.session.set({ pageAllExtensionsOpen: $('#page-all-extensions').open }); }
+  catch (error) { report(error); }
+});
 $('#page-all-search').addEventListener('input', () => renderAllExtensions());
 $('#page-selected-search').addEventListener('input', renderCards);
 for (const wrapper of document.querySelectorAll('.page-search-control')) {
@@ -619,7 +623,13 @@ if (globalThis.chrome?.management) {
     if (area === 'local' && (changes.selectedIds || changes.theme || changes.grouped || changes.rearrange || changes.cardOrders)) void refresh();
   });
   window.addEventListener('focus', refresh);
-  void refresh();
+  void (async () => {
+    try {
+      const session = await chrome.storage.session.get('pageAllExtensionsOpen');
+      $('#page-all-extensions').open = session.pageAllExtensionsOpen === true;
+    } catch (error) { report(error); }
+    await refresh();
+  })();
 } else {
   report('Load this folder as an unpacked extension in Chrome, then click its toolbar icon.');
 }
