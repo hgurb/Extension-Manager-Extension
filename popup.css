@@ -2,8 +2,9 @@ html { inline-size: 360px; }
 body { inline-size: 360px; max-block-size: 590px; display: flex; flex-direction: column; font-size: 12px; }
 .popup-nav { display: flex; align-items: center; gap: 8px; padding: 10px; border-block-end: 1px solid var(--border); flex-shrink: 0; }
 .popup-nav button { font-size: 11px; padding: 5px 7px; white-space: nowrap; }
+.popup-nav .chrome-shortcuts .shortcut-button { padding: 4px; }
 .manager-header-box { display: flex; align-items: center; gap: 2px; flex: 1; min-inline-size: 0; background: var(--button); border: 1px solid var(--border); border-radius: 7px; }
-.popup-nav .manager-shortcut { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-inline-size: 0; padding: 5px; border: 0; background: transparent; font-size: 10px; }
+.popup-nav .manager-shortcut { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-inline-size: 0; padding: 5px; border: 0; background: transparent; font-size: 12px; font-weight: 600; line-height: 1.3; white-space: normal; text-align: start; }
 .popup-nav .manager-shortcut:hover, .popup-nav .manager-shortcut:focus-visible { background: var(--hover); box-shadow: inset 0 0 0 1px var(--accent), 0 0 8px #95afce30; }
 .manager-tools { display: flex; align-items: center; gap: 1px; margin-inline-start: auto; padding-inline-end: 3px; }
 .popup-nav .manager-tools .icon-button { inline-size: 24px; block-size: 26px; min-block-size: 26px; flex-basis: 24px; padding: 4px; border-color: transparent; background: transparent; }

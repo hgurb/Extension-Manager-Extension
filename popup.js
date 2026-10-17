@@ -326,7 +326,7 @@ $('#manager-tools').append(
   control('Manager details', ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z', 'M12 11v6', 'M12 7h.01'], () => openDetails(chrome.runtime.id)),
   control('Reload manager', ['M3 12a9 9 0 0 1 15.36-6.36L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-15.36 6.36L3 16', 'M3 21v-5h5'], () => { chrome.runtime.reload(); })
 );
-$('#open-chrome').addEventListener('click', async () => { try { await chrome.tabs.create({ url: 'chrome://extensions/' }); } catch (error) { report(error); } });
+setupChromeShortcuts($('#open-chrome'), $('#open-dashboard'));
 for (const name of ['onInstalled', 'onUninstalled', 'onEnabled', 'onDisabled']) chrome.management[name].addListener(refreshPopup);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && ['selectedIds', 'theme', 'grouped', 'rearrange', 'cardOrders'].some(key => key in changes)) void refreshPopup();

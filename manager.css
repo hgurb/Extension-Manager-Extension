@@ -20,7 +20,12 @@ h1 { margin: 0; font-size: 26px; letter-spacing: -.8px; }
 .credit a { color: inherit; text-underline-offset: 3px; }
 a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 3px; }
 header p { margin: 6px 0 0; color: var(--muted); }
-.header-subtitle { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; line-height: 1.5; }
+.header-subtitle { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; line-height: 1.5; }
+.chrome-shortcuts { display: inline-flex; align-items: center; gap: 4px; }
+.chrome-shortcuts .shortcut-button { display: inline-grid; place-items: center; inline-size: 28px; block-size: 28px; min-block-size: 28px; flex: 0 0 28px; padding: 4px; border-color: transparent; background: transparent; color: var(--muted); }
+.chrome-shortcuts .shortcut-button:hover { color: var(--text); background: var(--hover); }
+.chrome-shortcuts .shortcut-button svg, .chrome-shortcuts .shortcut-button img { display: block; inline-size: 20px; block-size: 20px; object-fit: contain; }
+.chrome-shortcuts .extensions-shortcut svg { fill: currentColor; stroke: none; }
 .header-subtitle .text-button { padding: 0 3px; min-block-size: 0; font-size: inherit; line-height: inherit; }
 h2 { margin: 0; font-size: 14px; font-weight: 650; }
 button { font: inherit; border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; background: var(--button); color: var(--text); cursor: pointer; min-block-size: 32px; }

@@ -1,5 +1,16 @@
 'use strict';
 
+function setupChromeShortcuts(extensionsButton, dashboardButton) {
+  makeIconButton(extensionsButton, 'Chrome extensions', ['M20 11h-1V7c0-1.1-.9-2-2-2h-4V4c0-1.66-1.34-3-3-3S7 2.34 7 4v1H3c-1.1 0-2 .9-2 2v3.8h1.5c1.79 0 3.25 1.46 3.25 3.25S4.29 17.3 2.5 17.3H1V21c0 1.1.9 2 2 2h3.8v-1.5c0-1.79 1.46-3.25 3.25-3.25s3.25 1.46 3.25 3.25V23H17c1.1 0 2-.9 2-2v-4h1c1.66 0 3-1.34 3-3s-1.34-3-3-3Z']);
+  extensionsButton.classList.add('extensions-shortcut');
+  makeIconButton(dashboardButton, 'Chrome Web Store developer dashboard', ['M4 9h16v12H4Z', 'M3 9l2-6h14l2 6', 'M8 13v4h8v-4']);
+  for (const [button, url] of [[extensionsButton, 'chrome://extensions/'], [dashboardButton, 'https://chrome.google.com/webstore/devconsole/']]) {
+    button.addEventListener('click', async () => {
+      try { await chrome.tabs.create({ url }); } catch (error) { report(error); }
+    });
+  }
+}
+
 // Preserve the visible row, rather than its old scroll offset, when content above grows.
 function preserveListPosition(root, rowSelector, headingSelector, scroller = window) {
   const viewport = scroller === window ? { top: 0, bottom: innerHeight } : scroller.getBoundingClientRect();

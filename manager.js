@@ -240,7 +240,7 @@ function renderCards() {
     toggle.title = toggle.disabled ? 'Managed' : info.enabled ? 'Disable' : 'Enable';
     toggle.addEventListener('change', async () => {
       if (info.id === chrome.runtime.id && !toggle.checked &&
-          !confirm('Turn off extension Extension Manager Extension? This will close this extension page.')) {
+          !confirm('Turn off the Extension Manager Extension extension? Turning off this extension will close this extension’s extension page. You can turn the extension back on using Chrome’s extension manager.')) {
         toggle.checked = true;
         return;
       }
@@ -273,6 +273,7 @@ function renderCards() {
     errors.title = 'Errors';
     const restart = button('Restart ↻', async () => {
       if (info.id === chrome.runtime.id) {
+        if (!confirm('Reload the Extension Manager Extension extension? Reloading this extension will close this extension’s extension page. You can reopen the extension page using the extension’s extension icon.')) return;
         chrome.runtime.reload();
         return;
       }
@@ -602,9 +603,7 @@ for (const radio of document.querySelectorAll('[name="view-mode"]')) radio.addEv
     await refresh();
   } catch (error) { report(error); await refresh(); }
 });
-$('#chrome-page').addEventListener('click', async () => {
-  try { await chrome.tabs.create({ url: 'chrome://extensions/' }); } catch (error) { report(error); }
-});
+setupChromeShortcuts($('#chrome-page'), $('#developer-dashboard'));
 $('#theme').addEventListener('click', async () => {
   try {
     const next = theme === 'dark' ? 'light' : 'dark';
